@@ -37,4 +37,4 @@ def run_calibration_from_file():
     run_homography_based_calibration(points, H, invH, d0, d1, p0x, p0y)
 
 
-run_calibration_from_file()
+#run_calibration_from_file()

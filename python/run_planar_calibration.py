@@ -76,7 +76,7 @@ def get_image_correspondences(img0, img1):
 def qload_images(idx0, lastidx):
     imgs = list()
     for i in range(idx0, lastidx):
-        filename = './data/photosPicture1/DSCF{}.jpg'.format(i)
+        filename = '../data/quere/x-e3_18mm/photosPicture1/DSCF{}.jpg'.format(i)
         print('loading image {}'.format(filename))
         imgs.append(qimage(filename))
     print('STEP #1 - Loading images and identifying feature points :COMPLETED')
