@@ -146,9 +146,9 @@ def qfilter_matches(imgs, min_matches=7):
 
 def run_planar_calibration():
     #1 Set suffixes of pictures to load
-    idx0 = 1975
+    idx0 = 0
     #idx0 = 1986
-    lastidx = 2001
+    lastidx = 27
 
     # STEP #1. Feature Matching
     imgs = qload_images(idx0, lastidx) # load images and compute features
@@ -166,7 +166,7 @@ def run_planar_calibration():
 
     # set initial camera center and distortion
     p0y, p0x = imgs[0].im.shape[0]/2, imgs[0].im.shape[1]/2
-    d0, d1 = 0, 0
+    d0, d1 = 0.1, 0.001
 
     # STEP #3 Projective Bundle Adjustment (4.2)
     opoints, oH, oinvH, od0, od1, op0x, op0y = run_bundle_adjustment(y0, p, H, y_camera, camera_indices, imgs)
