@@ -126,11 +126,11 @@ def test_matrix(H):
 
     X = np.hstack((X0, X1, X2, X3, X4))
     XX = H @ X
-    XX = XX/XX[-1,:]
+    XX = XX/XX[-1, :]
 
     M = np.identity(3)
-    M = np.hstack((M, np.zeros((3,1))))
-    M[-1,-1] = 1
+    M = np.hstack((M, np.zeros((3, 1))))
+    M[-1, -1] = 1
     p0 = M @ X
     p0 = p0/p0[-1]
     p = M @ XX

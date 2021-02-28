@@ -152,6 +152,7 @@ def run_planar_calibration():
 
     # STEP #1. Feature Matching
     imgs = qload_images(idx0, lastidx) # load images and compute features
+    #create_mosaic(imgs, max_pictures=20)
     # STEP #2. Projective Reconstruction
     imgs = qcompute_homographies(imgs) # compute homographies with respect to image[0]
     # filter matches. We don't want to keep points that are only seen by a few cameras

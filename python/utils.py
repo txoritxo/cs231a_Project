@@ -115,6 +115,32 @@ def qtest_ba_parameter_extraction(imgs, y0, p, H, y_camera, camera_indices):
         cv.waitKey(0)
 
 
+def create_mosaic(imgs, max_pictures=None, width = 1024, ncols=5):
+    n = len(imgs) if max_pictures is None else min(len(imgs), max_pictures)
+    ncols = min(ncols, n)
+    nrows = n // ncols
+    h0, w0 = imgs[0].im.shape
+    f = w0 / h0
+    shrink = (width / ncols)/w0
+    w = int(w0 * shrink)
+    h = int(h0 * shrink)
+    the_pic = np.zeros((h*nrows, w*ncols))
+    for r in range(nrows):
+        for c in range(ncols):
+            id = r*ncols + c
+            im = cv.resize(imgs[id].im, dsize=(w, h))
+            the_pic[h*r:h*(r+1), w*c:w*(c+1)] = im
+            the_pic[:, w * c] = 0
+            the_pic[:, w * (c + 1)-1] = 0
+        the_pic[h * r, :] = 0
+        the_pic[h * (r+1)-1, :] = 0
+    plt.imshow(the_pic, cmap='gray')
+    plt.show()
+    cv.waitKey(0)
+
+
+
+
 def to_file(data, filename):
     with open('{}.pkl'.format(filename), 'wb') as outfile:
         pickle.dump(data, outfile, pickle.HIGHEST_PROTOCOL)
