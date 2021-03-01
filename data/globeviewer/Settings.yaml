@@ -1,0 +1,65 @@
+%YAML:1.0
+
+# Camera Parameters. Adjust them!
+
+# Camera calibration parameters (OpenCV)
+Camera.fx: 1117.647058824
+Camera.fy: 1117.647058824
+Camera.cx: 511.5
+Camera.cy: 383.5
+
+# Camera distortion paremeters (OpenCV) --
+Camera.k1: 0.0
+Camera.k2: 0.0
+Camera.p1: 0.0
+Camera.p2: 0.0
+
+# Camera frames per second
+Camera.fps: 10.0
+
+# Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
+Camera.RGB: 1
+
+#--------------------------------------------------------------------------------------------
+### Changing the parameters below could seriously degradate the performance of the system
+
+# ORB Extractor: Number of features per image
+ORBextractor.nFeatures: 1800
+
+# ORB Extractor: Scale factor between levels in the scale pyramid
+ORBextractor.scaleFactor: 1.2
+
+# ORB Extractor: Number of levels in the scale pyramid
+ORBextractor.nLevels: 8
+
+# ORB Extractor: Fast threshold (lower less restrictive)
+ORBextractor.fastTh: 15
+
+# ORB Extractor: Score to sort features. 0 -> Harris Score, 1 -> FAST Score
+ORBextractor.nScoreType: 0
+
+# Constant Velocity Motion Model (0 - disabled, 1 - enabled [recommended])
+UseMotionModel: 1
+
+#--------------------------------------------------------------------------------------------
+# INS Syncronization Parameters. Adjust them!
+
+# INS Mode (0 - visual only, 1 - visual-inertial)
+INS.Mode: 1
+
+# Rigid body transformation from INS coordinates to camera coordinates
+Tbc: !!opencv-matrix
+   rows: 3
+   cols: 4
+   dt: d
+   data: [ 0.0, -1.0,  0.0, 0.0,
+           1.0,  0.0,  0.0, 0.0,
+           0.0,  0.0,  1.0, 0.0 ]
+# simulation data
+#   data: [ 0.0,                  1.0,    0.0,                  0.0,
+#          -0.342020143325669,    0.0,    0.939692620785908,    0.0,
+#           0.939692620785908,    0.0,    0.342020143325669,    0.0]
+
+# Expected INS measurements frequency
+INS.Hz: 500
+
