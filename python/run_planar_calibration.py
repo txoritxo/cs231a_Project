@@ -7,7 +7,10 @@ from collections import defaultdict
 from utils import *
 from run_bundle_adjustment import *
 from bundle_adjustment import *
+from metric_reconstruction import *
 from run_homography_based_calibration import *
+import run_homography_based_calibration2 as rhc
+import metric_bundle_adjustment as mba
 
 IMAGE_WIDTH = 800
 
@@ -76,7 +79,8 @@ def get_image_correspondences(img0, img1):
 def qload_images(idx0, lastidx):
     imgs = list()
     for i in range(idx0, lastidx):
-        filename = '../data/quere/x-e3_18mm/photosPicture1/DSCF{:04d}.jpg'.format(i)
+        #filename = '../data/quere/x-e3_18mm/photosPicture1/DSCF{:04d}.jpg'.format(i)
+        filename = '../data/quere/eos450/photosPicture1/DSCF{:04d}.jpg'.format(i)
         print('loading image {}'.format(filename))
         imgs.append(qimage(filename))
     print('STEP #1 - Loading images and identifying feature points :COMPLETED')
@@ -98,29 +102,38 @@ class Woint:
         self.cameras = list()
 
 def qfilter_matches(imgs, min_matches=7):
+    # dict is a dictionary of observations in the reference image and number of images where a correspondence is found
     dict = defaultdict(int)
     for im in imgs[1:]:
         for match, mask in zip(im.good, im.mask):
             if not mask: continue
             dict[match.trainIdx] +=1
+
+    #dict2 is the same dictionary as dict, but keeping only when correspondences are greater than min_matches
     dict2 = {key: val for key, val in dict.items() if val > min_matches}
     dict3 = {key: [0] for key in dict2}
+    #y_camera contains a list of indices for each camera pointing to the corresponding observations in the reference image
     y_camera = [[] for i in range(len(imgs))]
-    y0 = None
-    p = [None]*len(imgs)
+    y0 = None # y0 list of observations in the reference image
+    p = [None]*len(imgs) # list of observations in each of the images. p[i] contains a list of such observations in image i
 
-    for pt_index, id in enumerate(dict2):
+
+    for pt_index, id in enumerate(dict2): #pt_index increasing, id is the id of the point in the ref image
+        # p[i] is the container of observations for image 1. Image0 is the reference and shall contain
+        # all the points in dict2
+        # pt_index is the index of point id in container p[0].
         if p[0] is None:
             p[0] = np.array(imgs[0].kp[id].pt)
         else:
             p[0] = np.vstack((p[0], np.array(imgs[0].kp[id].pt)))
         y_camera[0].append(pt_index)
+        #now we have to iterate in all other images and check whether a match exists with point id
         for i, im in enumerate(imgs[1:], start=1):
             for match, mask in zip(im.good, im.mask):
                 if not mask: continue
-                if match.trainIdx == id:
-                    dict3[id].append(i)
-                    y_camera[i].append(pt_index)
+                if match.trainIdx == id and pt_index not in y_camera[i]:
+                    dict3[id].append(i) #dict3 contains lists of images that have correspondence with feature point id
+                    y_camera[i].append(pt_index) #append pt_index to the list of point indices for camera i
                     if p[i] is None:
                         p[i] = np.array(im.kp[match.queryIdx].pt)
                     else:
@@ -147,8 +160,8 @@ def qfilter_matches(imgs, min_matches=7):
 def run_planar_calibration():
     #1 Set suffixes of pictures to load
     idx0 = 0
-    #idx0 = 1986
-    lastidx = 27
+    lastidx = 10
+    #lastidx = 35
 
     # STEP #1. Feature Matching
     imgs = qload_images(idx0, lastidx) # load images and compute features
@@ -158,12 +171,12 @@ def run_planar_calibration():
     # filter matches. We don't want to keep points that are only seen by a few cameras
     # the minimum matches considered are given by parameter min_matches
     y0, p, H, y_camera, camera_indices = qfilter_matches(imgs, min_matches=7)
-
     # this function is for visual validation purposes, it'll draw point correspondences for all considered images in
     # camera_indices. such point correspondences will be extracted from the output of qfilter_matches
-    #qtest_ba_parameter_extraction(imgs, y0, p, H, y_camera, camera_indices)
-    #plot_homographies(imgs)
-    #qprojective_ba(imgs, the_camera)
+    # qtest_ba_parameter_extraction(imgs, y0, p, H, y_camera, camera_indices)
+    # plot_homographies(imgs)
+    # qplot_correspondences(imgs)
+    # qprojective_ba(imgs, the_camera)
 
     # set initial camera center and distortion
     p0y, p0x = imgs[0].im.shape[0]/2, imgs[0].im.shape[1]/2
@@ -171,11 +184,23 @@ def run_planar_calibration():
 
     # STEP #3 Projective Bundle Adjustment (4.2)
     opoints, oH, oinvH, od0, od1, op0x, op0y = run_bundle_adjustment(y0, p, H, y_camera, camera_indices, imgs)
-    to_file([opoints, oH, oinvH, od0, od1, op0x, op0y], 'hbundle1')
+    to_file([opoints, oH, oinvH, od0, od1, op0x, op0y, y0, p, H, y_camera, camera_indices], 'hbundle_adj_small')
 
     # STEP #4 Homography based calibration
-    run_homography_based_calibration(opoints, oH, oinvH, od0, od1, op0x, op0y, IMAGE_WIDTH)
+    K, n, a, b = run_homography_based_calibration(opoints, oH, oinvH, od0, od1, op0x, op0y, IMAGE_WIDTH)
+    to_file([opoints, oH, oinvH, od0, od1, op0x, op0y, K, n, a, b, y0, p, H, y_camera, camera_indices], 'homocalib_small')
 
+    p3Dref, Rmats, Tvecs = metric_reconstruction(opoints, p, y_camera, camera_indices, K, a, b, n, od0, od1)
+    d = np.array([od0, od1])
+    X, pd = mba.pack_parameters(K, d, Rmats, Tvecs, p3Dref)
+    oK, od, oRmats, oTvecs, op3Dref = mba.unpack_parameters(X, pd)
+    total_observations = sum(len(p[c]) for c in camera_indices)
+
+    res = least_squares(mba.compute_residual, X, verbose=2, x_scale='jac', method='trf', ftol=1e-4, loss='linear',
+                        # loss='linear', #loss='cauchy',
+                        jac='2-point', args=(pd, p, y_camera, camera_indices, total_observations))
+    to_file((res,pd), 'full_ba_small')
+    K_final, dist_final, fRmats, fTvecs, fp3Dref = mba.unpack_parameters(res.x, pd)
     # STEP #5 Metric Reconstruction & bundle adjustment
     # Still to implement
 

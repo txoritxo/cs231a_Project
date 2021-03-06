@@ -4,7 +4,12 @@ from matplotlib import pyplot as plt
 import scipy.optimize as opt
 import math
 import os
-#from mpl_toolkits.mplot3d import Axes3D
+#from run_homography_based_calibration import *
+from run_homography_based_calibration2 import *
+#from metric_reconstruction import *
+from utils import *
+import metric_bundle_adjustment as mba
+from scipy.optimize import least_squares
 
 # Calculates Rotation Matrix given euler angles.
 def set_axes_equal(ax: plt.Axes):
@@ -23,11 +28,13 @@ def set_axes_equal(ax: plt.Axes):
     radius = 0.5 * np.max(np.abs(limits[:, 1] - limits[:, 0]))
     _set_axes_radius(ax, origin, radius)
 
+
 def _set_axes_radius(ax, origin, radius):
     x, y, z = origin
     ax.set_xlim3d([x - radius, x + radius])
     ax.set_ylim3d([y - radius, y + radius])
     ax.set_zlim3d([z - radius, z + radius])
+
 
 def eulerAnglesToRotationMatrix(theta):
     R_x = np.array([[1, 0, 0],
@@ -46,7 +53,6 @@ def eulerAnglesToRotationMatrix(theta):
                     ])
 
     R = np.dot(R_z, np.dot(R_y, R_x))
-
     return R
 
 
@@ -65,6 +71,7 @@ def qtest1():
     print('X_hat = {}'.format(X_hat))
     print('X_back = {}'.format(X_back))
     z=0
+
 
 def resize_file(dir, filename, width, suffix=''):
     im = cv.imread(dir+'/'+filename)
@@ -94,6 +101,7 @@ def resize_directory(dir):
         else:
             continue
 
+
 def fun(x):
     return [x[0] + 0.5 * x[1] - 1.0,
             0.5 * (x[1] - x[0]) ** 2]
@@ -116,6 +124,7 @@ def qplot3d(H):
     set_axes_equal(ax)
     plt.show()
     cv.waitKey(0)
+
 
 def test_matrix(H):
     X0 = np.array([100, 100, 0, 1]).reshape(4, 1)
@@ -146,6 +155,7 @@ def test_matrix(H):
     plt.show()
     cv.waitKey(0)
 
+
 def qrename_files(dir):
     i = 0
     for filename in os.listdir(dir):
@@ -160,7 +170,87 @@ def qrename_files(dir):
             continue
 
 
+def qtest():
+    data = from_file('hbundle_adj1')
+    opoints, oH, oinvH, od0, od1, op0x, op0y, y0, p, H, y_camera, camera_indices = from_file('hbundle_adj1')
+#    od0 = 0
+#    od1 = 0
+    d = np.array([od0, od1])
+    K, n, a, b = run_homography_based_calibration(opoints, oH, oinvH, od0, od1, op0x, op0y, 800)
+    p3Dref, Rmats, Tvecs = metric_reconstruction(opoints, p, y_camera, camera_indices, K, a, b, n, od0, od1)
+    X, pd = mba.pack_parameters(K, d, Rmats, Tvecs, p3Dref)
+    oK, od, oRmats, oTvecs, op3Dref = mba.unpack_parameters(X, pd)
+    total_observations = sum(len(p[c]) for c in camera_indices)
 
-qrename_files('../data/quere/x-e3_18mm/photosPicture1/')
-#resize_directory(r'C:\Users\Carlos\development\Stanford\ComputerVision\project\data\checkerboard0\subset3000')
-#qtest1()
+    res = least_squares(mba.compute_residual, X, verbose=2, x_scale='jac', method='trf', ftol=1e-4, loss='linear', #loss='linear', #loss='cauchy',
+                        jac='2-point', args=(pd, p, y_camera, camera_indices, total_observations))
+    to_file(res, 'full_ba')
+
+
+
+def qtest_distortion():
+    fx, fy = 550., 570.
+    #fx, fy = 1, 1
+    pc = np.array([400., 250.])
+    K = np.array([
+        [fx, 0, pc[0]],
+        [0, fy, pc[1]],
+        [0,  0,    1]
+    ])
+    #d0 = -2.33e-7
+    #d1 = 5.17e-13
+    d0 = -0.0001
+    d1 = 0.002
+    dist = np.array([d0, d1, 0., 0.])
+    p = np.array([750., 500.]).reshape(2, 1)
+    y = unproject_to_world(p, K, dist)
+    p_ = project_to_image(y, K, dist= dist)
+    z=0
+
+
+def qtest_distortion3():
+    fx, fy = 537.30654434, 537.40351997
+    pc = np.array([389.7087858, 248.69778319])
+    K = np.array([
+        [fx, 0, pc[0]],
+        [0, fy, pc[1]],
+        [0,  0,    1]
+    ])
+    d0 = -2.33e-7
+    d1 = 5.17e-13
+    #d0 = -0.0001
+    #d1 = 0.002
+    dist = np.array([d0, d1, 0., 0.])
+    p = np.array([755., 500.]).reshape(2, 1)
+    y = unproject_to_world(p, K, dist)
+    p_ = project_to_image(y, K, dist= dist)
+    z=0
+
+
+def qtest_distortion2():
+    fx, fy = 550., 570.
+    pc = np.array([400., 250.]).reshape(2, 1)
+    K = np.array([
+        [fx, 0, pc[0,0]],
+        [0, fy, pc[1,0]],
+        [0,  0,    1]
+    ])
+    d0 = -2.33e-7
+    d1 = 5.17e-13
+#    d0 = 0.00001
+#    d1 = 0.000002
+    dist = np.array([d0, d1, 0., 0.])
+    p = np.array([755., 500.]).reshape(2, 1)
+    pd = compute_distortion(p, d0, d1, pc)
+    p_ = undistort(pd, d0, d1, pc)
+    z=0
+
+
+#qrename_files('../data/quere/eos450/photosPicture1/')
+#utils.imase_seq_to_video('../data/data4cpp/')
+#qrename_files('../data/marta/SD_cam9/renamed/')
+#resize_directory('../data/quere/eos450/checkerboard/')
+#qtest_distortion3()
+#qtest_solver()
+#qtest_distortion()
+qtest()

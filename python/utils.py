@@ -2,7 +2,7 @@ import numpy as np
 import cv2 as cv
 from matplotlib import pyplot as plt
 import pickle
-
+import os
 
 #class distortion_model:
 #    def __init__(self):
@@ -138,7 +138,37 @@ def create_mosaic(imgs, max_pictures=None, width = 1024, ncols=5):
     plt.show()
     cv.waitKey(0)
 
+def qrename_files(dir):
+    i = 0
+    for filename in os.listdir(dir):
+        if filename.lower().endswith(".jpg"):
+            print('processing {}'.format(filename))
+            suffix = '{:04d}'.format(i)
+            oldname = '{}/{}'.format(dir, filename)
+            newname = '{}/DSCF{}.jpg'.format(dir, suffix)
+            os.rename(oldname, newname)
+            i+=1
+        else:
+            continue
 
+def imase_seq_to_video(dir):
+    i = 0
+    img_array = []
+    for filename in os.listdir(dir):
+        if filename.lower().endswith(".jpg"):
+            print('processing {}'.format(filename))
+            img = cv.imread(dir+filename)
+            h, w, l = img.shape
+            sz = (w, h)
+            img_array.append(img)
+        else:
+            continue
+
+    out = cv.VideoWriter(dir + 'qVideo1.avi', cv.VideoWriter_fourcc(*'DIVX'), 15, sz)
+
+    for im in img_array:
+        out.write(im)
+    out.release()
 
 
 def to_file(data, filename):
@@ -151,3 +181,4 @@ def from_file(filename):
         result = pickle.load(infile)
         return result
     return None
+

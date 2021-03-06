@@ -31,11 +31,15 @@ def compute_a_b(n, e):
     b = np.cross(nn.T, a.T).T
     return a, b
 
+def unit_norm_constraint(X):
+    K, n0 = unpack_parameters(X)
+    return 1-np.linalg.norm(n0)
+
 
 def compute_residual(X, H, e):
     #e = np.array([1, 0, 0]).reshape(3, 1)
     K, n0 = unpack_parameters(X)
-    n0 = n0 / np.linalg.norm(n0)
+    #n0 = n0 / np.linalg.norm(n0)
     a0, b0 = compute_a_b(n0, e)
     invK = np.linalg.inv(K)
     temp = invK @ H @ K
