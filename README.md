@@ -1,5 +1,5 @@
-# cs231a_Project
-
+# "Camera Autocalibration using Predominantly Planar Aerial Imagery"
+This repository includes the software developed by M.Palomar, C.Querejeta and M.Hardt as part of the Winter 2021 cs231a class 
 ## Python Implementation
 This software implements the camera planar self-calibration method described in the paper "Forget the checkerboard: Practical self-calibration using a planar scene" by D.Herrera et Al. Even though an open source C++ solution is available, it's implementation is oriented towards real-time calibration, making use of hard to follow optimizations and making extensive use of OpenGL GLSL shaders to accelerate the process which makes customization of the code quite a challenge. It has been considered more academic to implement from scratch a more intuitive and customizable solution -although obviously less computationally effcient- for the method described in the paper. Such implementation makes use of openCV and SciKit which enable very easy customizations on feature matching and detection algorithms or non-linear and minimum least square solvers to apply throughout the different steps of the algorithm.
 The steps to conduct a planar self-calibration are as follows:
