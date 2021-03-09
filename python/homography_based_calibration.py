@@ -28,7 +28,7 @@ def compute_a_b(n, e):
     ee = e.reshape(3, 1)
 
     a = np.cross(nn.T, ee.T).T
-    b = np.cross(nn.T, a.T).T
+    b = np.cross(a.T, nn.T).T
     return a, b
 
 def unit_norm_constraint(X):
@@ -60,12 +60,13 @@ def compute_initial_f(H):
     # H_31 H_32 sq_f + H_11 H_12 + H_21 H_22 = 0
     # H_31^2 sq_f - H_32^1 sq_f+ H_11^2 + H_21^2 - H_12^2 - H_22^2 = 0
     # which leads to an overdetermined system AX + B = 0
-    B1 = H[:, 0, 0] * H[:, 0, 1] + H[:, 1, 0] * H[:, 1, 1]
-    B2 = H[:, 0, 0]**2 + H[:, 1, 0]**2 - H[:, 0, 1]**2 - H[:, 1, 1]**2
-    A1 = H[:, 2, 0] * H[:, 2, 1]
-    A2 = H[:, 2, 0]**2 - H[:, 2, 1]**2
-    A = np.hstack((A1, A2)).reshape((H.shape[0]*2), 1)
-    B = -np.hstack((B1, B2)).reshape((H.shape[0]*2), 1)
+    numH = len(H)-1
+    B1 = H[1:, 0, 0] * H[1:, 0, 1] + H[1:, 1, 0] * H[1:, 1, 1]
+    B2 = H[1:, 0, 0]**2 + H[1:, 1, 0]**2 - H[1:, 0, 1]**2 - H[1:, 1, 1]**2
+    A1 = H[1:, 2, 0] * H[1:, 2, 1]
+    A2 = H[1:, 2, 0]**2 - H[1:, 2, 1]**2
+    A = np.hstack((A1, A2)).reshape((numH*2), 1)
+    B = -np.hstack((B1, B2)).reshape((numH*2), 1)
     x, res, rank, sval = np.linalg.lstsq(A, B, rcond=None)
     # warning, x could be negative!!! which means that f=sqrt(x) would be complex
     # This might be wrong, but we're returning here f=sqrt(abs(x)) !!
