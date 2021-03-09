@@ -114,6 +114,32 @@ def qtest_ba_parameter_extraction(imgs, y0, p, H, y_camera, camera_indices):
         plt.show()
         cv.waitKey(0)
 
+def reprojection_error(p, y_camera, H, camera_indices):
+    reproj_error = [[] for i in range(len(y_camera))]  # number of images
+    reproj_error_summary = np.zeros((len(camera_indices),4))
+    for i in range(1,len(camera_indices)):   # camera with at least 10 matches
+        phat_i = cv.perspectiveTransform(p[0][y_camera[i]].reshape(-1, 1, 2), H[i]).reshape(-1, 2)
+        #phat2_0 = (np.column_stack((p[i], np.ones((len(p[i]), 1)))) @ H[i].T)
+        #phat2a_0 = phat2_0[:,:2] / np.outer(phat2_0[:,2], np.ones(2))
+        reproj_error[i] = np.linalg.norm(phat_i - p[i], axis=1)
+        reproj_error_summary[i] = np.array([camera_indices[i], len(p[i]), np.sum(reproj_error[i]), np.mean(reproj_error[i])])
+    reproj_error_total = np.sum(reproj_error_summary[:,2])
+    return reproj_error_total, reproj_error_summary, reproj_error
+
+
+def reprojection_inverse_error(p, y_camera, invH, camera_indices):
+    reproj_inv_error = [[] for i in range(len(y_camera))]  # number of images
+    reproj_inv_error_summary = np.zeros((len(camera_indices),5))
+    for i in range(1,len(camera_indices)):   # camera with at least 10 matches
+        s = np.linalg.svd(H[i], full_matrices=True, compute_uv=False)
+        p_0 = p[0][y_camera[i]]
+        phat_0 = cv.perspectiveTransform(p[i].reshape(-1, 1, 2), invH[i]).reshape(-1, 2)
+        reproj_inv_error[i] = np.linalg.norm(phat_0 - p_0, axis=1)
+        reproj_inv_error_summary[i] = np.array([camera_indices[i], len(p_0), np.sum(reproj_inv_error[i]),
+                                                np.mean(reproj_inv_error[i]), s[0]/s[-1]])
+    reproj_inv_error_total = np.sum(reproj_inv_error_summary[:,2])
+    return reproj_inv_error_total, reproj_inv_error_summary, reproj_inv_error
+
 
 def create_mosaic(imgs, max_pictures=None, width = 1024, ncols=5):
     n = len(imgs) if max_pictures is None else min(len(imgs), max_pictures)
@@ -137,6 +163,7 @@ def create_mosaic(imgs, max_pictures=None, width = 1024, ncols=5):
     plt.imshow(the_pic, cmap='gray')
     plt.show()
     cv.waitKey(0)
+
 
 def qrename_files(dir):
     i = 0
