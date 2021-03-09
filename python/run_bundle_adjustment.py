@@ -8,11 +8,14 @@ from bundle_adjustment import *
 from bundle_adjustment_utils import *
 
 
-def run_bundle_adjustment(y0, p, H, y_camera, camera_indices, images):
+def run_bundle_adjustment(y0, p, Hinv, y_camera, camera_indices, images):
     print('STEP #3 - Computing Projective Bundle Adjustment')
-    total_observations = sum(len(p[c]) for c in camera_indices )
+    total_observations = sum(len(p[c]) for c in camera_indices[1:])
     p0y, p0x = images[0].im.shape[0] / 2, images[0].im.shape[1] / 2
-    X, pdef = pack_parameters(y0, H, 0, 0, p0x, p0y)
+    p_cen = np.array([p0x, p0y])
+    d0 = 0.0
+    d1 = 0.0
+    X, pdef = pack_parameters(y0, Hinv, d0, d1, p0x, p0y, p_cen)
     #plot_packed_homographies2(X, pdef, p, y_camera, camera_indices, total_observations, images)
     #plot_packed_correspondences(X, pdef, p, y_camera, camera_indices, total_observations, images)
     res0 = compute_residual(X, pdef, p, y_camera, camera_indices, total_observations)
@@ -20,11 +23,11 @@ def run_bundle_adjustment(y0, p, H, y_camera, camera_indices, images):
     #plt.show()
     #cv.waitKey(0)
     t0 = time.time()
-    res = least_squares(compute_residual, X, verbose=2, x_scale='jac', method='trf', ftol=1e-4, loss='cauchy', #loss='linear', #loss='cauchy',
-                        jac='3-point', args=(pdef, p, y_camera, camera_indices, total_observations))
+    res = least_squares(compute_residual, X, verbose=2, x_scale='jac', method='trf', ftol=1e-6, loss=loss_function_cauchy, #loss='linear', #loss='cauchy',
+                        jac=compute_Jacobian, args=(pdef, p, y_camera, camera_indices, total_observations))
     t1 = time.time()
     res1 = res.fun
-    plot_pixel_errors(res0, res1)
+    #plot_pixel_errors(res0, res1)
     #plt.plot(res.fun)
     #plot_packed_homographies(X, pdef, p, y_camera, camera_indices, total_observations, images)
     opoints, oH, oinvH, od0, od1, op0x, op0y = unpack_parameters(res.x, pdef)
