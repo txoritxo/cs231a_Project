@@ -34,7 +34,7 @@ def unproject_to_world(p, K, dist):
     if len(p) > 2:
         ph = np.array([p[0] / p[-1], p[1] / p[-1]]).reshape(2, 1)
     else:
-        ph = p
+        ph = p.reshape(2, 1)
     xd = undistort(ph, dist[0], dist[1], pc)
     xd = xd - pc
     xn = xd / f
