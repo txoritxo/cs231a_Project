@@ -27,8 +27,8 @@ def compute_a_b(n, e):
     nn = n.reshape(3, 1)
     ee = e.reshape(3, 1)
 
-    a = np.cross(nn.T, ee.T).T
-    b = np.cross(a.T, nn.T).T
+    b = np.cross(nn.T, ee.T).T
+    a = np.cross(b.T, nn.T).T
     return a, b
 
 def unit_norm_constraint(X):

@@ -4,9 +4,10 @@ from homography_based_calibration import *
 from scipy.optimize import NonlinearConstraint
 from scipy import optimize
 
-def run_homography_based_calibration(points, H, invH, d0, d1, p0x, p0y, imw=640):
+def run_homography_based_calibration(points, H, invH, d0, d1, p0x, p0y, imw=640, Tscale=np.eye(3)):
     print('STEP #4 - Conducting Homography based calibration')
     f0 = compute_initial_f(invH)
+    #f0 = Tscale[0,0] * 1100
     n0 = np.array([0, 0, 1])
     K0 = build_K(f0, f0, p0x, p0y)
     X0 = pack_parameters(K0, n0)
@@ -20,7 +21,7 @@ def run_homography_based_calibration(points, H, invH, d0, d1, p0x, p0y, imw=640)
     a, b = compute_a_b(n, e)
     print('Finished optimization: output message: {}'.format(res.message))
     print('success: {} ; iters: {} ; residual: {}'.format(res.success, res.nit, res.fun))
-    print('K =\n {} ; \nn = {}'.format(K, n.T))
+    print('K =\n {} ; \nn = {}'.format(np.linalg.inv(Tscale) @ K, n.T))
     print('a =\n {} ; b = {}'.format(a.T, b.T))
     img_sz = np.array([imw, imw/1.5])
     sensor_size = np.array([23.5, 15.6])

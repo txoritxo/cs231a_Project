@@ -8,13 +8,12 @@ from bundle_adjustment import *
 from bundle_adjustment_utils import *
 
 
-def run_bundle_adjustment(y0, p, Hinv, y_camera, camera_indices, images):
+def run_bundle_adjustment(y0, p, Hinv, y_camera, camera_indices, images, dist_ini=np.zeros(2)):
     print('STEP #3 - Computing Projective Bundle Adjustment')
     total_observations = sum(len(p[c]) for c in camera_indices[1:])
-    p0y, p0x = images[0].im.shape[0] / 2, images[0].im.shape[1] / 2
+    p0y, p0x = images[0].cen
     p_cen = np.array([p0x, p0y])
-    d0 = 0.0
-    d1 = 0.0
+    d0, d1 = dist_ini
     X, pdef = pack_parameters(y0, Hinv, d0, d1, p0x, p0y, p_cen)
     #plot_packed_homographies2(X, pdef, p, y_camera, camera_indices, total_observations, images)
     #plot_packed_correspondences(X, pdef, p, y_camera, camera_indices, total_observations, images)

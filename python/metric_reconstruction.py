@@ -36,7 +36,6 @@ def print_reprojections_opencv(p3d, p, rotvec, Rotmat, tvec, K, dist=None):
             np.asscalar(projection[0]), np.asscalar(projection[1])))
 
 
-
 def compute_R_t(n,a,b):
     R = np.hstack((a, b, n))
     #R = R.T

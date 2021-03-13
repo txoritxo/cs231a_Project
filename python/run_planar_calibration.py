@@ -13,12 +13,14 @@ from run_homography_based_calibration import *
 import metric_bundle_adjustment as mba
 
 IMAGE_WIDTH = 800
+LV_SCALE_PTS = False
+LV_USE_FLANN_MATCH = True
+LV_RESIZE = False
 
 class qimage:
     def __init__(self, filename):
         self.im = cv.imread(filename, 0)
         h, w = self.im.shape
-        LV_RESIZE = True
 
         if h>w:
             self.im = cv.rotate(self.im, cv.ROTATE_90_CLOCKWISE)
@@ -41,13 +43,15 @@ class qimage:
         self.good = None
         self.p0 = None
         self.p1 = None
+        self.Tscale = np.diag(np.array([2./w, 2./w])) if LV_SCALE_PTS is True else np.eye(2)
+        self.cen = np.array([1, h/w]) if LV_SCALE_PTS is True else np.array([w/2, h/2])
+        self.scaled_dim = np.array([2*h/w, 2]) if LV_SCALE_PTS is True else np.array([h, w])
 
 def compute_homography(img1:qimage, img2:qimage):
     # img1 = image i, img2 = image0
     MIN_MATCH_COUNT = 10
     MAX_MATCH_COUNT = 1000
     FLANN_INDEX_KDTREE = 1
-    LV_USE_FLANN_MATCH = True
 
     if LV_USE_FLANN_MATCH is True:
         index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
@@ -73,10 +77,10 @@ def compute_homography(img1:qimage, img2:qimage):
             break
 
     if len(good) > MIN_MATCH_COUNT:
-        src_pts = np.float32([img1.kp[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
-        dst_pts = np.float32([img2.kp[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
-        M, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 5.0)
-        Minv, maskinv = cv.findHomography(dst_pts, src_pts, cv.RANSAC, 5.0)
+        src_pts = np.float32([img1.kp[m.queryIdx].pt for m in good]) @ img1.Tscale
+        dst_pts = np.float32([img2.kp[m.trainIdx].pt for m in good]) @ img2.Tscale
+        M, mask = cv.findHomography(src_pts.reshape(-1, 1, 2), dst_pts.reshape(-1, 1, 2), cv.RANSAC, 5.0)
+        Minv, maskinv = cv.findHomography(dst_pts.reshape(-1, 1, 2), src_pts.reshape(-1, 1, 2), cv.RANSAC, 5.0)
         matchesMask = mask.ravel().tolist()
         img1.good = good.copy()
         img1.mask = matchesMask.copy()
@@ -97,6 +101,8 @@ def get_image_correspondences(img0, img1):
         this_p1 = img1.kp[match.queryIdx].pt
         p0 = np.hstack((p0, np.array([[this_p0[0]], [this_p0[1]]])))
         p1 = np.hstack((p1, np.array([[this_p1[0]], [this_p1[1]]])))
+    p0 = img0.Tscale @ p0
+    p1 = img1.Tscale @ p1
     return p0, p1
 
 
@@ -117,6 +123,18 @@ def qload_images_michael(idx_list):
         filename = '../data/globeviewer/images/Rozas_gyro_bias_laps_007{:02d}_rgb.jpg'.format(idx)
         print('loading image {}'.format(filename))
         imgs.append(qimage(filename))
+    print('STEP #1 - Loading images and identifying feature points :COMPLETED')
+    return imgs
+
+
+def qload_images_michael2():
+    imgs = list()
+    datadir = '../data/michael/Rozas_julio/'
+    filelist = os.listdir(datadir)
+    for filename in filelist:
+        file = datadir + filename
+        print('loading image {}'.format(file))
+        imgs.append(qimage(file))
     print('STEP #1 - Loading images and identifying feature points :COMPLETED')
     return imgs
 
@@ -157,9 +175,9 @@ def qfilter_matches(imgs, min_matches=7):
         # all the points in dict2
         # pt_index is the index of point id in container p[0].
         if p[0] is None:
-            p[0] = np.array(imgs[0].kp[id].pt)
+            p[0] = np.array(imgs[0].Tscale @ imgs[0].kp[id].pt)
         else:
-            p[0] = np.vstack((p[0], np.array(imgs[0].kp[id].pt)))
+            p[0] = np.vstack((p[0], imgs[0].Tscale @ np.array(imgs[0].kp[id].pt)))
         y_camera[0].append(pt_index)
         #now we have to iterate in all other images and check whether a match exists with point id
         for i, im in enumerate(imgs[1:], start=1):
@@ -169,9 +187,9 @@ def qfilter_matches(imgs, min_matches=7):
                     dict3[id].append(i) #dict3 contains lists of images that have correspondence with feature point id
                     y_camera[i].append(pt_index) #append pt_index to the list of point indices for camera i
                     if p[i] is None:
-                        p[i] = np.array(im.kp[match.queryIdx].pt)
+                        p[i] = np.array(im.Tscale @ im.kp[match.queryIdx].pt)
                     else:
-                        p[i] = np.vstack((p[i], im.kp[match.queryIdx].pt))
+                        p[i] = np.vstack((p[i], im.Tscale @ im.kp[match.queryIdx].pt))
 
     camera_indices = list(i for i, ob in enumerate(p) if len(ob) > 10)
     y0 = p[0].copy()
@@ -200,8 +218,7 @@ def qfilter_matches(imgs, min_matches=7):
 
 def run_planar_calibration():
     #1 Set suffixes of pictures to load
-    LV_IMAGES_QUERE = True
-
+    LV_IMAGES_QUERE = False
     # STEP #1. Feature Matching
     if LV_IMAGES_QUERE is True:
         idx0 = 0
@@ -210,17 +227,26 @@ def run_planar_calibration():
         # lastidx = 35
         imgs = qload_images(idx0, lastidx) # load images and compute features
     else:
-        #idx_list = np.array([30, 44, 18, 61, 51, 45, 17, 27, 15, 25, 59, 33, 73,  4,  5, 52,  0, 10, 60,  7, 16])
-        idx_list = np.array([30, 44, 18, 61, 51, 45, 17, 27, 15, 25])
-        imgs = qload_images_michael(idx_list) # load images and compute features
+        LV_GLOBEVIEWER = False
+        if LV_GLOBEVIEWER is True:
+            dist_ini = np.zeros(2)
+            #idx_list = np.array([30, 44, 18, 61, 51, 45, 17, 27, 15, 25, 59, 33, 73,  4,  5, 52,  0, 10, 60,  7, 16])
+            idx_list = np.array([30, 44, 18, 61, 51, 45, 17, 27, 15, 25])
+            imgs = qload_images_michael(idx_list) # load images and compute features
+        else:
+            dist_ini = np.array([1e-4, 1e-6])
+            imgs = qload_images_michael2() # load images and compute features
 
     create_mosaic(imgs, max_pictures=20)
+    Tscale = np.eye(3)
+    Tscale[:2,:2] = imgs[0].Tscale
 
     # STEP #2. Projective Reconstruction
     imgs = qcompute_homographies(imgs) # compute homographies with respect to image[0]
     # filter matches. We don't want to keep points that are only seen by a few cameras
     # the minimum matches considered are given by parameter min_matches
-    y0, p, invH, y_camera, camera_indices = qfilter_matches(imgs, min_matches=7)
+    #y0, p, invH, y_camera, camera_indices = qfilter_matches(imgs, min_matches=7)
+    y0, p, invH, y_camera, camera_indices = qfilter_matches(imgs, min_matches=3)
     # this function is for visual validation purposes, it'll draw point correspondences for all considered images in
     # camera_indices. such point correspondences will be extracted from the output of qfilter_matches
     # qtest_ba_parameter_extraction(imgs, y0, p, H, y_camera, camera_indices)
@@ -237,7 +263,7 @@ def run_planar_calibration():
     #reprojiT0, reprojiS0, reprojiE0 = reprojection_inverse_error(p, y_camera, H, camera_indices)
 
     # STEP #3 Projective Bundle Adjustment (4.2)
-    opoints, oH, oinvH, od0, od1, op0x, op0y = run_bundle_adjustment(y0, p, invH, y_camera, camera_indices, imgs)
+    opoints, oH, oinvH, od0, od1, op0x, op0y = run_bundle_adjustment(y0, p, invH, y_camera, camera_indices, imgs, dist_ini)
     to_file([opoints, oH, oinvH, od0, od1, op0x, op0y, y0, p, invH, y_camera, camera_indices], 'hbundle_adj_small')
 
     #reprojT1, reprojS1, reprojE1 = reprojection_error(p, y_camera, oinvH, camera_indices)
@@ -248,7 +274,7 @@ def run_planar_calibration():
     # plot_pixel_errors(res0, res1)
 
     # STEP #4 Homography based calibration
-    K, n, a, b = run_homography_based_calibration(opoints, oH, oinvH, od0, od1, op0x, op0y, IMAGE_WIDTH)
+    K, n, a, b = run_homography_based_calibration(opoints, oH, oinvH, od0, od1, op0x, op0y, IMAGE_WIDTH, Tscale)
     to_file([opoints, oH, oinvH, od0, od1, op0x, op0y, K, n, a, b, y0, p, invH, y_camera, camera_indices], 'homocalib_small')
 
     # STEP #5 Metric Reconstruction & bundle adjustment
@@ -258,12 +284,13 @@ def run_planar_calibration():
     oK, od, oRmats, oTvecs, op3Dref = mba.unpack_parameters(X, pd)
     total_observations = sum(len(p[c]) for c in camera_indices)
 
-    res = least_squares(mba.compute_residual, X, verbose=2, x_scale='jac', method='trf', ftol=1e-4, loss='linear',
-                        # loss='linear', #loss='cauchy',
-                        jac='2-point', args=(pd, p, y_camera, camera_indices, total_observations))
+    res = least_squares(mba.compute_residual, X, verbose=2, x_scale='jac', method='trf', ftol=1e-6, loss='linear',
+                        # loss='linear', #loss='cauchy', jac='2-point',
+                        jac=mba.compute_mba_Jacobian, args=(pd, p, y_camera, camera_indices, total_observations))
     to_file((res,pd), 'full_ba_small')
     K_final, dist_final, fRmats, fTvecs, fp3Dref = mba.unpack_parameters(res.x, pd)
-    print('K final = {}'.format(K_final))
+
+    print('K final = {}'.format(np.linalg.inv(Tscale) @ K_final))
     print('dist final = {}'.format(dist_final))
 
 run_planar_calibration()

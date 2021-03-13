@@ -105,7 +105,7 @@ def compute_Jacobian(X, pdef, observations, y_camera, camera_indices, total_obse
 
         for j in range(len(indy)):
             dz1dy = invH[cam_index][:,:2]                                           # z1 = H y
-            dz2dz1 = np.hstack((np.ones((2,2)), -z2[j].reshape(2,1)))/z1[j][2]      # z2 = z1[:2] / z1[2]
+            dz2dz1 = np.hstack((np.eye(2), -z2[j].reshape(2,1)))/z1[j][2]      # z2 = z1[:2] / z1[2]
             dr2dz2 = 2 * (z2[j]-p0).reshape(1,2)                                    # r2 = (z2-p0).T (z2-p0)
             dz3dr2 = (d0+2*r2[j]*d1)*(z2[j]-p0).reshape(2,1)                        # z3 = (z2-p0) (1+d0*r2+d1*r4) + p0
             dz3dz2 = (1 + d0*r2[j]+d1*r2[j]**2)*np.eye(2)
@@ -117,14 +117,14 @@ def compute_Jacobian(X, pdef, observations, y_camera, camera_indices, total_obse
             dz1dh[2,6:] = y[j]
             dXdh = -(dz3dr2 @ dr2dz2 @ dz2dz1 @ dz1dh + dz3dz2 @ dz2dz1 @ dz1dh)
             indH = list(range(len(points)*2+i*8,len(points)*2+(i+1)*8))
-            jac[2 * indy[j]:2*indy[j]+2, indH] = dXdh
+            jac[2*indy[j]:2*indy[j]+2, indH] = dXdh
             dz3dd = np.hstack((r2[j]*(z2[j]-p0).reshape(2,1), (r2[j]**2)*(z2[j]-p0).reshape(2,1)))
             dXdd = -dz3dd
             indd = list(range(len(points)*2+num_cams*8,len(points)*2+num_cams*8+2))
             jac[2 * indy[j]:2 * indy[j] + 2, indd] = dXdd
             dr2dp0 = -2*(z2[j]-p0).reshape(1,2)
             dz3dp0 = (1-(1 + d0*r2[j]+d1*r2[j]**2))*np.eye(2)
-            dXdp0 = -np.eye(2) @ (dz3dr2 @ dr2dp0 + dz3dp0)
+            dXdp0 = -(dz3dr2 @ dr2dp0 + dz3dp0)
             indp0 = list(range(len(points)*2+num_cams*8+2,len(points)*2+num_cams*8+4))
             jac[2 * indy[j]:2 * indy[j] + 2, indp0] = dXdp0
 
