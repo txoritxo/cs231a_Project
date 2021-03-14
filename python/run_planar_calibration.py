@@ -14,7 +14,7 @@ import metric_bundle_adjustment as mba
 
 IMAGE_WIDTH = 800
 LV_SCALE_PTS = False
-LV_USE_FLANN_MATCH = True
+LV_USE_FLANN_MATCH = False
 LV_RESIZE = False
 
 class qimage:
@@ -43,6 +43,7 @@ class qimage:
         self.good = None
         self.p0 = None
         self.p1 = None
+        h, w = self.im.shape
         self.Tscale = np.diag(np.array([2./w, 2./w])) if LV_SCALE_PTS is True else np.eye(2)
         self.cen = np.array([1, h/w]) if LV_SCALE_PTS is True else np.array([w/2, h/2])
         self.scaled_dim = np.array([2*h/w, 2]) if LV_SCALE_PTS is True else np.array([h, w])
@@ -50,7 +51,7 @@ class qimage:
 def compute_homography(img1:qimage, img2:qimage):
     # img1 = image i, img2 = image0
     MIN_MATCH_COUNT = 10
-    MAX_MATCH_COUNT = 1000
+    MAX_MATCH_COUNT = 500
     FLANN_INDEX_KDTREE = 1
 
     if LV_USE_FLANN_MATCH is True:
@@ -227,14 +228,17 @@ def run_planar_calibration():
         # lastidx = 35
         imgs = qload_images(idx0, lastidx) # load images and compute features
     else:
-        LV_GLOBEVIEWER = False
+        LV_GLOBEVIEWER = True
         if LV_GLOBEVIEWER is True:
             dist_ini = np.zeros(2)
             #idx_list = np.array([30, 44, 18, 61, 51, 45, 17, 27, 15, 25, 59, 33, 73,  4,  5, 52,  0, 10, 60,  7, 16])
             idx_list = np.array([30, 44, 18, 61, 51, 45, 17, 27, 15, 25])
             imgs = qload_images_michael(idx_list) # load images and compute features
         else:
-            dist_ini = np.array([1e-4, 1e-6])
+            if LV_SCALE_PTS is True:
+                dist_ini = np.array([1e-4, 1e-6])
+            else:
+                dist_ini = np.array([1e-12, 1e-14])
             imgs = qload_images_michael2() # load images and compute features
 
     create_mosaic(imgs, max_pictures=20)
@@ -284,9 +288,10 @@ def run_planar_calibration():
     oK, od, oRmats, oTvecs, op3Dref = mba.unpack_parameters(X, pd)
     total_observations = sum(len(p[c]) for c in camera_indices)
 
-    res = least_squares(mba.compute_residual, X, verbose=2, x_scale='jac', method='trf', ftol=1e-6, loss='linear',
+    res = least_squares(mba.compute_residual, X, verbose=2, x_scale='jac', method='trf', ftol=1e-3, loss='linear',
                         # loss='linear', #loss='cauchy', jac='2-point',
-                        jac=mba.compute_mba_Jacobian, args=(pd, p, y_camera, camera_indices, total_observations))
+                        jac='2-point', #jac=mba.compute_mba_Jacobian,
+                        args=(pd, p, y_camera, camera_indices, total_observations))
     to_file((res,pd), 'full_ba_small')
     K_final, dist_final, fRmats, fTvecs, fp3Dref = mba.unpack_parameters(res.x, pd)
 
