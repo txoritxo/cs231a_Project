@@ -44,6 +44,7 @@ class qimage:
         self.p0 = None
         self.p1 = None
         self.Tscale = np.diag(np.array([2./w, 2./w])) if LV_SCALE_PTS is True else np.eye(2)
+        h, w = self.im.shape
         self.cen = np.array([1, h/w]) if LV_SCALE_PTS is True else np.array([w/2, h/2])
         self.scaled_dim = np.array([2*h/w, 2]) if LV_SCALE_PTS is True else np.array([h, w])
 
@@ -223,7 +224,7 @@ def run_planar_calibration():
     if LV_IMAGES_QUERE is True:
         idx0 = 0
         # lastidx = 27
-        lastidx = 10
+        lastidx = 15
         # lastidx = 35
         imgs = qload_images(idx0, lastidx) # load images and compute features
     else:
@@ -263,6 +264,7 @@ def run_planar_calibration():
     #reprojiT0, reprojiS0, reprojiE0 = reprojection_inverse_error(p, y_camera, H, camera_indices)
 
     # STEP #3 Projective Bundle Adjustment (4.2)
+    dist_ini = np.zeros(2)
     opoints, oH, oinvH, od0, od1, op0x, op0y = run_bundle_adjustment(y0, p, invH, y_camera, camera_indices, imgs, dist_ini)
     to_file([opoints, oH, oinvH, od0, od1, op0x, op0y, y0, p, invH, y_camera, camera_indices], 'hbundle_adj_small')
 
@@ -285,12 +287,16 @@ def run_planar_calibration():
     total_observations = sum(len(p[c]) for c in camera_indices)
 
     res = least_squares(mba.compute_residual, X, verbose=2, x_scale='jac', method='trf', ftol=1e-6, loss='linear',
-                        # loss='linear', #loss='cauchy', jac='2-point',
+                        # loss='linear', #loss='cauchy', jac='2-point',#jac=mba.compute_mba_Jacobian
                         jac=mba.compute_mba_Jacobian, args=(pd, p, y_camera, camera_indices, total_observations))
     to_file((res,pd), 'full_ba_small')
     K_final, dist_final, fRmats, fTvecs, fp3Dref = mba.unpack_parameters(res.x, pd)
 
     print('K final = {}'.format(np.linalg.inv(Tscale) @ K_final))
     print('dist final = {}'.format(dist_final))
+    qz = res.fun.reshape(2, -1)
+    rep_error = np.std(qz, axis=1)
+    print('reprojection error = {} norm= {}'.format(rep_error, np.linalg.norm(rep_error)))
+
 
 run_planar_calibration()
