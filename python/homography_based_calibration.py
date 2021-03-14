@@ -55,7 +55,7 @@ def compute_residual(X, H, e):
     return res
 
 
-def compute_initial_f(H):
+def compute_initial_f(H, Tscale):
     # we have to solve the following linear system on sq_f:
     # H_31 H_32 sq_f + H_11 H_12 + H_21 H_22 = 0
     # H_31^2 sq_f - H_32^1 sq_f+ H_11^2 + H_21^2 - H_12^2 - H_22^2 = 0
@@ -73,6 +73,6 @@ def compute_initial_f(H):
     # the result make sense, but again, it might be wrong
     if x < 0:
         print('warning initial estimation of f^2 is <0!, taking its absolute value instead!')
-    print('initial f is :{}'.format(np.sqrt(np.abs(x))))
+    print('initial f is :{}'.format(np.sqrt(np.abs(x)) / Tscale[0,0]))
     return np.asscalar(np.sqrt(np.abs(x)))
 

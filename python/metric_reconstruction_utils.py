@@ -24,7 +24,7 @@ def undistort(pd, d0, d1, p0):
     rn_opts = np.roots(np.array([d1, 0, d0, 0, 1.0, -rd]))
     rn_opts = np.real(rn_opts[np.imag(rn_opts)==0.0])
     rn = np.maximum(0, np.minimum(rd, rn_opts[np.argmin(np.abs(rn_opts - rd))]))
-    x = pd * rn / rd
+    x = (pd - p0) * rn / rd + p0
     return x
 
 

@@ -6,7 +6,7 @@ from scipy import optimize
 
 def run_homography_based_calibration(points, H, invH, d0, d1, p0x, p0y, imw=640, Tscale=np.eye(3)):
     print('STEP #4 - Conducting Homography based calibration')
-    f0 = compute_initial_f(invH)
+    f0 = compute_initial_f(invH, Tscale)
     #f0 = Tscale[0,0] * 1100
     n0 = np.array([0, 0, 1])
     K0 = build_K(f0, f0, p0x, p0y)
